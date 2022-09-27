@@ -1,3 +1,6 @@
+#Project ignores
+regearbot_package/config.py
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
