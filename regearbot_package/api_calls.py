@@ -1,7 +1,6 @@
 import requests
-from pprint import pformat, pprint
-from regearbot_package.classes import Death
-import re
+from pprint import pprint
+from regearbot_package.object_classes import Death
 from regearbot_package.mogodb_data_manager import MongoDataManager
 from PIL import Image
 import io
@@ -13,41 +12,33 @@ class AlbionApi:
     murder_url = "https://murderledger.com/api"
     render_item = "https://render.albiononline.com/v1/item"
 
-    def __init__(self, name: str):
-        self.name = name
-        self.player_id = self.get_player_id()
-
-    def get_player_id(self) -> str:
-        url = f'{self.albion_url}/search?q={self.name}'
+    @classmethod
+    def get_player_id(cls, name: str) -> str:
+        url = f'{cls.albion_url}/search?q={name}'
         return requests.get(url=url).json()["players"][0].get("Id")
 
-    def get_player_info(self) -> dict:
-        url = f"{self.albion_url}/players/{self.player_id}"
+    @classmethod
+    def get_player_info(cls, player_id: str) -> dict:
+        url = f"{cls.albion_url}/players/{player_id}"
         return requests.get(url=url).json()
-
-    def request_death_info(self) -> dict:
-        # Will return the last 10 kills info
-        url = f'{self.albion_url}/players/{self.player_id}/deaths'
-        return requests.get(url=url).json()
-
-    def get_player_stats(self) -> str:
-        url = f"{self.murder_url}/players/{self.name}/info"
-        return pformat(requests.get(url=url).json())
-
-    def get_player_mmr(self) -> list:
-        url = f"{self.murder_url}/players/{self.name}/elo-chart"
-        return requests.get(url=url).json()["data"]
-
-    def find_player(self) -> str:
-        url = f"{self.murder_url}/player-search/{self.name}"
-        return pformat(requests.get(url=url).json()['results'])
 
     @classmethod
-    def request_render_item(cls, item: str):
+    def request_death_info(cls, player_id: str) -> dict:
+        # Will return the last 10 kills info
+        url = f'{cls.albion_url}/players/{player_id}/deaths'
+        return requests.get(url=url).json()
+
+    @classmethod
+    def get_player_mmr(cls, name: str) -> list:
+        url = f"{cls.murder_url}/players/{name}/elo-chart"
+        return requests.get(url=url).json()["data"]
+
+    @classmethod
+    def request_render_item(cls, item: str) -> str:
         return f"{cls.render_item}/{item}.png"
 
     @classmethod
-    def convert_images_to_a_single_image(cls, image_list: list):
+    def convert_images_to_a_single_image(cls, image_list: list) -> discord.File:
 
         # Requesting images from api
         pillow_imgs = []
@@ -80,11 +71,11 @@ class AlbionApi:
         return discord.File(fp=arr, filename="items.png")
 
 
-class ReGearInfo(AlbionApi):
+class ReGearCalls:
 
     def __init__(self, name: str):
-        super().__init__(name)
-        self.deaths_list = self.request_death_info()
+        self.player_id = AlbionApi.get_player_id(name=name)
+        self.deaths_list = AlbionApi.request_death_info(player_id=self.player_id)
         self.victim_info_list = []  # list of objects for MongoDB
         self.display_list = []  # list of objects to display on Discord
 

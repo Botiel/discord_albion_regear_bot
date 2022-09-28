@@ -1,14 +1,11 @@
-import discord
 from discord.client import Client
 from discord.message import Message
-from regearbot_package.api_calls import AlbionApi, ReGearInfo
+from regearbot_package.api_calls import AlbionApi, ReGearCalls
 from random import choice
 from discord import Embed
-from pprint import pprint, pformat
 
 
 class Commands:
-
     images_channel = 1024344203100168312
 
     def __init__(self, msg: Message, client: Client):
@@ -62,27 +59,27 @@ class Commands:
 
     async def player_mmr_command(self):
         if self.content[0] == "!player_mmr":
-            api = AlbionApi(name=self.content[1])
-            msg = f'{self.content[1]} Recent Mmr: {api.get_player_mmr()[-1]}'
+            mmr = AlbionApi.get_player_mmr(name=self.content[1])[-1]
+            msg = f'{self.content[1]} Recent Mmr: {mmr}'
             await self.msg.channel.send(msg)
 
     async def all_recent_deaths_command(self):
         if self.content[0] == "!deaths":
-            api = ReGearInfo(name=self.content[1])
+            api = ReGearCalls(name=self.content[1])
             api.get_deaths_info()
             api.get_display_format()
             await self.create_regear_embed_objects(display_list=api.display_list)
 
     async def last_death_command(self):
         if self.content[0] == "!last_death":
-            api = ReGearInfo(name=self.content[1])
+            api = ReGearCalls(name=self.content[1])
             api.get_deaths_info()
             api.get_display_format()
             await self.create_regear_embed_objects(display_list=api.display_list, is_last=True)
 
     async def submit_regear_request_command(self):
         if self.content[0] == "!regear":
-            api = ReGearInfo(name=self.content[1])
+            api = ReGearCalls(name=self.content[1])
             api.get_deaths_info()
             if api.submit_regear_request(event_id=self.content[2]):
                 await self.msg.channel.send(f"EventId[{self.content[2]}] submitted successfully")
