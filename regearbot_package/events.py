@@ -1,12 +1,15 @@
 from discord.client import Client
 from discord.message import Message
+from discord import Embed
+from regearbot_package.config import CHANNELS_ID
 from regearbot_package.api_calls import AlbionApi, ReGearCalls
 from random import choice
-from discord import Embed
 
 
 class Commands:
-    images_channel = 1024344203100168312
+    images_channel = CHANNELS_ID.get("regear-images")
+    admins_channel = CHANNELS_ID.get("regear-admins")
+    users_channel = CHANNELS_ID.get("regear-users")
 
     def __init__(self, msg: Message, client: Client):
         self.msg = msg
@@ -39,6 +42,8 @@ class Commands:
         if first_char == '!':
             if first_word == 'help' and commands_quantity == 1:
                 return True
+            elif first_word == 'pull_regear_requests' and commands_quantity == 1:
+                return True
             elif first_word != 'help' and first_word != 'regear' and commands_quantity == 2:
                 return True
             elif first_word == 'regear' and commands_quantity == 3:
@@ -58,33 +63,38 @@ class Commands:
                                        "    !regear <Player Name> <EventId>\n")
 
     async def player_mmr_command(self):
-        if self.content[0] == "!player_mmr":
+        if self.content[0] == "!player_mmr" and self.msg.channel.id == self.users_channel:
             mmr = AlbionApi.get_player_mmr(name=self.content[1])[-1]
             msg = f'{self.content[1]} Recent Mmr: {mmr}'
             await self.msg.channel.send(msg)
 
     async def all_recent_deaths_command(self):
-        if self.content[0] == "!deaths":
+        if self.content[0] == "!deaths" and self.msg.channel.id == self.users_channel:
             api = ReGearCalls(name=self.content[1])
             api.get_deaths_info()
             api.get_display_format()
             await self.create_regear_embed_objects(display_list=api.display_list)
 
     async def last_death_command(self):
-        if self.content[0] == "!last_death":
+        if self.content[0] == "!last_death" and self.msg.channel.id == self.users_channel:
             api = ReGearCalls(name=self.content[1])
             api.get_deaths_info()
             api.get_display_format()
             await self.create_regear_embed_objects(display_list=api.display_list, is_last=True)
 
     async def submit_regear_request_command(self):
-        if self.content[0] == "!regear":
+        if self.content[0] == "!regear" and self.msg.channel.id == self.users_channel:
             api = ReGearCalls(name=self.content[1])
             api.get_deaths_info()
             if api.submit_regear_request(event_id=self.content[2]):
                 await self.msg.channel.send(f"EventId[{self.content[2]}] submitted successfully")
             else:
                 await self.msg.channel.send(f"EventId[{self.content[2]}] has already been submitted or not exist!")
+
+    async def get_all_regear_requests_from_db_command(self):
+        if self.content[0] == "!pull_regear_requests" and self.msg.channel.id == self.admins_channel:
+            file = ReGearCalls.convert_regear_objects_to_csv()
+            await self.msg.channel.send(file=file)
 
 
 class Encourage:

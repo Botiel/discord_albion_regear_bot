@@ -3,6 +3,7 @@ from regearbot_package.events import Commands, Encourage
 from discord.message import Message
 import discord
 
+
 intents = discord.Intents().all()
 client = discord.Client(intents=intents)
 
@@ -31,6 +32,7 @@ async def on_message(msg: Message):
         await commands.all_recent_deaths_command()
         await commands.last_death_command()
         await commands.submit_regear_request_command()
+        await commands.get_all_regear_requests_from_db_command()
 
 if __name__ == '__main__':
     client.run(DISCORD_TOKEN)
