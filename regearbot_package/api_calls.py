@@ -5,7 +5,7 @@ from PIL import Image
 from pymongo import MongoClient
 from regearbot_package.config import MONGO_CLIENT
 import pandas as pd
-import io
+from io import BytesIO
 import discord
 import json
 import os
@@ -49,10 +49,13 @@ class AlbionApi:
 
     @classmethod
     def convert_images_to_a_single_image(cls, image_list: list) -> discord.File:
-
         # Requesting images from api
         pillow_imgs = []
         for img in image_list:
+
+            if img == 'https://render.albiononline.com/v1/item/.png':
+                continue
+
             response = requests.get(url=img, stream=True).raw
             pillow_imgs.append(Image.open(response))
 
@@ -75,7 +78,7 @@ class AlbionApi:
         # injecting new data to new_img
         new_img.putdata(temp_img)
 
-        arr = io.BytesIO()
+        arr = BytesIO()
         new_img.save(arr, format='PNG')
         arr.seek(0)
         return discord.File(fp=arr, filename="items.png")
@@ -176,7 +179,7 @@ class ReGearCalls:
         df = pd.DataFrame(temp)
 
         # STEP[4] save as binary (discord file)
-        arr = io.BytesIO()
+        arr = BytesIO()
         df.to_csv(arr, index=False, sep=",")
         arr.seek(0)
 
