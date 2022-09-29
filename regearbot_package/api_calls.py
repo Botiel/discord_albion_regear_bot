@@ -145,7 +145,13 @@ class ReGearCalls:
         temp = {'Name': [],
                 'EventId': [],
                 'AverageItemPower': [],
-                'Items': []}
+                'Head': [],
+                'Armor': [],
+                'Shoes': [],
+                'Cape': [],
+                'MainHand': [],
+                'OffHand': [],
+                'Inventory': []}
         for doc in docs:
             temp['Name'].append(doc['Victim'].get('Name'))
             temp['EventId'].append(f"https://albiononline.com/en/killboard/kill/{doc.get('EventId')}")
@@ -155,12 +161,17 @@ class ReGearCalls:
             if equipment:
                 for item in equipment:
                     for k, v in item.items():
-                        temp['Items'].append(items_data[v])
+                        try:
+                            temp[k].append(items_data[v])
+                        except Exception:
+                            temp[k].append('')
 
             inventory = doc['Victim'].get('Inventory')
             if inventory:
                 for item in inventory:
-                    temp['Items'].append(items_data[item])
+                    temp['Inventory'].append(items_data[item])
+            else:
+                temp['Inventory'].append('')
 
         df = pd.DataFrame(temp)
 
@@ -238,12 +249,14 @@ def convert_item_codes_to_json():
         data = f.readlines()
 
     rank = {
-        "Journeyman's": 'T3',
-        "Adept's": 'T4',
-        "Expert's": 'T5',
-        "Master's": 'T6',
-        "Grandmaster's": 'T7',
-        "Elder's": 't8'
+        "Beginner's": '1',
+        "Novice's": '2',
+        "Journeyman's": '3',
+        "Adept's": '4',
+        "Expert's": '5',
+        "Master's": '6',
+        "Grandmaster's": '7',
+        "Elder's": '8'
     }
 
     items_dict = {}
@@ -259,11 +272,12 @@ def convert_item_codes_to_json():
             except Exception:
                 pass
             else:
-                v = v.replace(tier_name, tier_code.capitalize())
+                v = v.replace(tier_name, "")
+                v = f"{v} {tier_code}"
 
             if '@' in k:
-                enchant = f' (+{k.split("@")[1]})'
-                v = v + enchant
+                enchant = k.split("@")[1]
+                v = f"{v}.{enchant}"
             items_dict.update({k: v})
         except Exception:
             pass

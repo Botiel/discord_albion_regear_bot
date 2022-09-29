@@ -35,6 +35,8 @@ class Victim(BaseModel):
             else:
                 if v:
                     equipment.append({k: v.get('Type')})
+                else:
+                    equipment.append({k: ''})
         self.Equipment.clear()
         self.Equipment = equipment
 
