@@ -1,8 +1,8 @@
 #Project ignores
 regearbot_package/config.py
 .idea/
-.debug.py
-.export_release_version.py
+debug.py
+export_release_version.py
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
