@@ -14,7 +14,7 @@ class Victim(BaseModel):
     Inventory: List
     Equipment: Any
 
-    def check_inventory(self):
+    def check_inventory(self):  # Checking inventory for "SIEGEHAMMER"
         if not self.Inventory:
             return
 

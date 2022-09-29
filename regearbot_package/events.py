@@ -18,21 +18,38 @@ class Commands:
 
     async def create_regear_embed_objects(self, display_list: list, is_last=False):
 
+        embed_list = []
+
         for i, item in enumerate(display_list):
+
+            # Creating an Embed description variable
+            date = item['TimeStamp'].split('T')[0]
+            time = item['TimeStamp'].split('T')[1].split('.')[0]
             desc = f"EventId: {item['EventId']}\n" \
-                   f"Date: {item['TimeStamp'].split('T')[0]}\n" \
-                   f"Time: {item['TimeStamp'].split('T')[1]}\n" \
+                   f"Date: {date}\n" \
+                   f"Time: {time}\n" \
                    f"AverageItemPower: {item['AverageItemPower']}\n"
 
+            # Concatenating all item images to a single image
             file = AlbionApi.convert_images_to_a_single_image(image_list=item["items_as_png"])
+
+            # Getting images channel id for uploading images
             images_channel = self.client.get_channel(self.images_channel)
             msg_id = await images_channel.send(file=file)
+
+            # Creating an Embed object
             info_embed = Embed(title=f"{self.content[1]} Last Death:", description=desc)
             info_embed.set_image(url=msg_id.attachments[0].url)
-            await self.msg.author.send(embed=info_embed)
 
+            # If querying only for last death then return last death embed else append embed to list
             if is_last:
+                await self.msg.author.send(embed=info_embed)
                 return
+            else:
+                embed_list.append(info_embed)
+
+        # Send to author all death embed objects
+        await self.msg.author.send(embeds=embed_list)
 
     def check_if_command(self):
         first_char = self.content[0][0]  # Checks for "!" sign

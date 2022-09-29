@@ -1,4 +1,8 @@
-MONGO_CLIENT = ""
+MONGO_CLIENT = {
+    "client": '',
+    "db": '',
+    "collection": ''
+}
 DISCORD_TOKEN = ""
 CHANNELS_ID = {
     "regear-images": 0,
