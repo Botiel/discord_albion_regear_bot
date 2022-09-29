@@ -8,6 +8,13 @@ import pandas as pd
 import io
 import discord
 import json
+import os
+import sys
+
+
+CURR_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(os.path.abspath(os.path.join(CURR_DIR, '../')))
+ROOT_DIR = sys.path[-1]
 
 
 class AlbionApi:
@@ -126,8 +133,13 @@ class ReGearCalls:
         docs = mongo.request_objects_to_regear(convert_to_regear=True)
 
         # STEP[2] importing items dict
-        with open('./regearbot_package/data/items_dict.json', 'r') as f:
-            data = json.load(f)
+        file = f'{ROOT_DIR}/regearbot_package/data/items_dict.json'
+        if not os.path.exists(file):
+            print('No such file -> items_dict.json')
+            return
+        else:
+            with open(file, 'r') as f:
+                data = json.load(f)
 
         # STEP[3] creating dataframe for csv
         temp = {'Name': [],
@@ -214,3 +226,45 @@ class MongoDataManager:
     def search_object_by_event_id(self, event_id: int) -> bool:
         query = self.collection.find_one({"EventId": event_id})
         return True if query else False
+
+
+def convert_item_codes_to_json():
+    folder = f'{ROOT_DIR}/regearbot_package/data/'
+    file = folder + 'item_codes_raw.text'
+    with open(file, 'r') as f:
+        data = f.readlines()
+
+    rank = {
+        "Journeyman's": 'T3',
+        "Adept's": 'T4',
+        "Expert's": 'T5',
+        "Master's": 'T6',
+        "Grandmaster's": 'T7',
+        "Elder's": 't8'
+    }
+
+    items_dict = {}
+    for item in data:
+        temp = item.replace("\n", "").split(':')
+        try:
+            k = temp[1].replace(" ", "")
+            v = temp[2]
+
+            try:
+                tier_name = v.split(' ')[1]
+                tier_code = rank[tier_name]
+            except Exception:
+                pass
+            else:
+                v = v.replace(tier_name, tier_code.capitalize())
+
+            if '@' in k:
+                enchant = f' (+{k.split("@")[1]})'
+                v = v + enchant
+            items_dict.update({k: v})
+        except Exception:
+            pass
+
+    file = folder + 'items_dict.json'
+    with open(file, 'w') as f:
+        json.dump(items_dict, f, indent=4)

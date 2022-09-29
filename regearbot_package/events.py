@@ -55,12 +55,14 @@ class Commands:
 
     async def help_command(self):
         if self.content[0] == "!help":
-            await self.msg.author.send("Greetings Noob!\n"
-                                       "Command List:\n"
+            await self.msg.author.send("Greetings Noob!\n\n"
+                                       "Users command List:\n"
                                        "    !player_mmr <Player Name>\n"
                                        "    !deaths <Player Name>\n"
                                        "    !last_death <Player Name>\n"
-                                       "    !regear <Player Name> <EventId>\n")
+                                       "    !regear <Player Name> <EventId>\n\n"
+                                       "Admins Only:\n"
+                                       "    !pull_regear_requests\n")
 
     async def player_mmr_command(self):
         if self.content[0] == "!player_mmr" and self.msg.channel.id == self.users_channel:
