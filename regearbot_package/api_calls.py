@@ -220,6 +220,10 @@ class MongoDataManager:
         new_values = {"$set": {"is_regeared": True}}
         self.collection.update_many(query, new_values)
 
+    def get_quantity_of_objects_by_regear(self, is_regeared: bool) -> int:
+        query = {"is_regeared": is_regeared}
+        return self.collection.count_documents(query)
+
     # ----------------- MANAGEMENT DEBUG METHODS -------------------
 
     def debug_delete_objects_from_db(self, my_query: dict):
@@ -230,10 +234,6 @@ class MongoDataManager:
         my_query = {"category": "Victim_to_regear"}
         query = self.collection.delete_many(my_query)
         print(query.deleted_count, " jsons deleted.")
-
-    def debug_get_quantity_of_objects_in_collection(self):
-        query = self.collection.count_documents({"category": "Victim_to_regear"})
-        print(query)
 
     def debug_search_object_by_event_id(self, event_id: int) -> bool:
         query = self.collection.find_one({"EventId": event_id})

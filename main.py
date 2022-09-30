@@ -2,6 +2,7 @@ from regearbot_package.config import DISCORD_TOKEN
 from regearbot_package.events import Commands, Encourage
 from discord.message import Message
 import discord
+import os
 
 
 intents = discord.Intents().all()
@@ -11,11 +12,12 @@ client = discord.Client(intents=intents)
 @client.event
 async def on_ready():
     print("Bot is up!")
+    # pid = os.getpid()
+    # print(f'Process ID: {pid}')
 
 
 @client.event
 async def on_message(msg: Message):
-
     if msg.author == client.user:
         return
 
@@ -33,6 +35,8 @@ async def on_message(msg: Message):
         await commands.last_death_command()
         await commands.submit_regear_request_command()
         await commands.get_all_regear_requests_from_db_command()
+        await commands.get_regear_quantity_from_db_command()
+
 
 if __name__ == '__main__':
     client.run(DISCORD_TOKEN)

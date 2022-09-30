@@ -2,7 +2,7 @@ from discord.client import Client
 from discord.message import Message
 from discord import Embed
 from regearbot_package.config import CHANNELS_ID
-from regearbot_package.api_calls import AlbionApi, ReGearCalls
+from regearbot_package.api_calls import AlbionApi, ReGearCalls, MongoDataManager
 from random import choice
 
 
@@ -79,7 +79,8 @@ class Commands:
                                        "    !last_death <Player Name>\n"
                                        "    !regear <Player Name> <EventId>\n\n"
                                        "Admins Only:\n"
-                                       "    !pull_regear_requests\n")
+                                       "    !pull_regear_requests\n"
+                                       "    !regear_quantity <true/false>")
 
     async def player_mmr_command(self):
         if self.content[0] == "!player_mmr" and self.msg.channel.id == self.users_channel:
@@ -114,6 +115,20 @@ class Commands:
         if self.content[0] == "!pull_regear_requests" and self.msg.channel.id == self.admins_channel:
             file = ReGearCalls.convert_regear_objects_to_csv()
             await self.msg.channel.send(file=file)
+
+    async def get_regear_quantity_from_db_command(self):
+        if self.content[0] == "!regear_quantity" and self.msg.channel.id == self.admins_channel:
+            mongo = MongoDataManager()
+            match self.content[1]:
+                case 'false':
+                    quantity = mongo.get_quantity_of_objects_by_regear(is_regeared=False)
+                    await self.msg.channel.send(f'Pending for regear: {quantity} players')
+                case 'true':
+                    quantity = mongo.get_quantity_of_objects_by_regear(is_regeared=True)
+                    await self.msg.channel.send(f'Regeared Players: {quantity}')
+                case _:
+                    await self.msg.channel.send('Invalid command, second argument must be true or false!')
+                    return
 
 
 class Encourage:
