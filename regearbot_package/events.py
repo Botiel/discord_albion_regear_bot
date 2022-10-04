@@ -28,7 +28,8 @@ class Commands:
             desc = f"EventId: {item['EventId']}\n" \
                    f"Date: {date}\n" \
                    f"Time: {time}\n" \
-                   f"AverageItemPower: {item['AverageItemPower']}\n"
+                   f"AverageItemPower: {item['AverageItemPower']}\n" \
+                   f"Url: https://albiononline.com/en/killboard/kill/{item['EventId']}\n"
 
             # Concatenating all item images to a single image
             file = AlbionApi.convert_images_to_a_single_image(image_list=item["items_as_png"])
@@ -52,23 +53,26 @@ class Commands:
         await self.msg.author.send(embeds=embed_list)
 
     def check_if_command(self):
-        first_char = self.content[0][0]  # Checks for "!" sign
-        first_word = self.content[0][1:]  # Checks the command
-        commands_quantity = len(self.content)  # Checks quantity of args
+        if self.content:
+            first_char = self.content[0][0]  # Checks for "!" sign
+            first_word = self.content[0][1:]  # Checks the command
+            commands_quantity = len(self.content)  # Checks quantity of args
+        else:
+            return 'msg'
 
         if first_char == '!':
             if first_word == 'help' and commands_quantity == 1:
-                return True
+                return 'yes'
             elif first_word == 'pull_regear_requests' and commands_quantity == 1:
-                return True
+                return 'yes'
             elif first_word != 'help' and first_word != 'regear' and commands_quantity == 2:
-                return True
+                return 'yes'
             elif first_word == 'regear' and commands_quantity == 3:
-                return True
+                return 'yes'
             else:
-                return False
+                return 'no'
 
-        return True
+        return 'msg'
 
     async def help_command(self):
         if self.content[0] == "!help":
@@ -93,6 +97,7 @@ class Commands:
             api = ReGearCalls(name=self.content[1])
             api.get_deaths_info()
             api.get_display_format()
+            await self.msg.author.send('Processing information [approximately 10 seconds]...')
             await self.create_regear_embed_objects(display_list=api.display_list)
 
     async def last_death_command(self):
@@ -113,6 +118,7 @@ class Commands:
 
     async def get_all_regear_requests_from_db_command(self):
         if self.content[0] == "!pull_regear_requests" and self.msg.channel.id == self.admins_channel:
+            await self.msg.channel.send('Processing information...')
             file = ReGearCalls.convert_regear_objects_to_csv()
             await self.msg.channel.send(file=file)
 

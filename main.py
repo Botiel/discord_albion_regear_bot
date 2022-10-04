@@ -2,18 +2,32 @@ from regearbot_package.config import DISCORD_TOKEN
 from regearbot_package.events import Commands, Encourage
 from discord.message import Message
 import discord
+import logging
 import os
+from datetime import datetime as dt
 
 
 intents = discord.Intents().all()
 client = discord.Client(intents=intents)
 
 
+def handle_logs():
+    now = dt.now().strftime("%Y-%m-%d")
+    folder = f'./discord_logs'
+    log_path = f'./discord_logs/log_{now}.logs'
+
+    if not os.path.exists(folder):
+        os.makedirs(folder)
+
+    return logging.FileHandler(filename=log_path, encoding='utf-8', mode='w')
+
+
 @client.event
 async def on_ready():
+    print(f'Process ID: {os.getpid()}')
+    print(f'Session Id: {client.ws.session_id}')
+    print(f'Thread Id: {client.ws.thread_id}')
     print("Bot is up!")
-    # pid = os.getpid()
-    # print(f'Process ID: {pid}')
 
 
 @client.event
@@ -25,10 +39,15 @@ async def on_message(msg: Message):
     await encouragement.check_if_needs_encouragement()
 
     commands = Commands(msg=msg, client=client)
-    if not commands.check_if_command():
+
+    if commands.check_if_command() == 'no':
         await msg.channel.send("Invalid Command, use !help")
         return
-    else:
+
+    elif commands.check_if_command() == 'msg':
+        return
+
+    elif commands.check_if_command() == 'yes':
         await commands.help_command()
         await commands.player_mmr_command()
         await commands.all_recent_deaths_command()
@@ -39,4 +58,5 @@ async def on_message(msg: Message):
 
 
 if __name__ == '__main__':
-    client.run(DISCORD_TOKEN)
+    client.run(DISCORD_TOKEN, log_handler=handle_logs(), log_level=logging.DEBUG)
+

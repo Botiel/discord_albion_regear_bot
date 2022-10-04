@@ -48,6 +48,10 @@ class AlbionApi:
         return f"{cls.render_item}/{item}.png"
 
     @classmethod
+    def request_kill_board_by_even_id(cls, event_id: str):
+        return f"https://albiononline.com/en/killboard/kill/{event_id}"
+
+    @classmethod
     def convert_images_to_a_single_image(cls, image_list: list) -> discord.File:
         # Requesting images from api
         pillow_imgs = []
