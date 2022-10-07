@@ -7,9 +7,9 @@ from random import choice
 
 
 class Commands:
-    images_channel = CHANNELS_ID.get("regear-images")
-    admins_channel = CHANNELS_ID.get("regear-admins")
-    users_channel = CHANNELS_ID.get("regear-users")
+    images_channel = CHANNELS_ID.get("regear_images")
+    admins_channel = CHANNELS_ID.get("regear_admins")
+    users_channel = CHANNELS_ID.get("regear_users")
 
     def __init__(self, msg: Message, client: Client):
         self.msg = msg

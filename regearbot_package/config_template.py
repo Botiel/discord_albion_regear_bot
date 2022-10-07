@@ -5,7 +5,7 @@ MONGO_CLIENT = {
 }
 DISCORD_TOKEN = ""
 CHANNELS_ID = {
-    "regear-images": 0,
-    "regear-admins": 0,
-    "regear-users": 0
+    "regear_images": 0,
+    "regear_admins": 0,
+    "regear_users": 0
 }
