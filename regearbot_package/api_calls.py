@@ -164,6 +164,7 @@ class ReGearCalls:
             temp['EventId'].append(f"https://albiononline.com/en/killboard/kill/{doc.get('EventId')}")
             temp['AverageItemPower'].append(doc['Victim'].get('AverageItemPower'))
 
+            # checking for items in the dictionary, if none -> append empty string
             equipment = doc['Victim'].get('Equipment')
             if equipment:
                 for item in equipment:
@@ -173,12 +174,19 @@ class ReGearCalls:
                         except Exception:
                             temp[k].append('')
 
+            # checking items in inventory, if none -> append empty string else append a list of the items
             inventory = doc['Victim'].get('Inventory')
             if inventory:
+                temp_items = []
                 for item in inventory:
-                    temp['Inventory'].append(items_data[item])
+                    temp_items.append(item)
+                temp['Inventory'].append(temp_items)
             else:
                 temp['Inventory'].append('')
+
+        # debug
+        # for k, v in temp.items():
+        #     print(k, len(v))
 
         df = pd.DataFrame(temp)
 

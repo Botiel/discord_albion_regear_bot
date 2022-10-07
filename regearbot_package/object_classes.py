@@ -10,7 +10,7 @@ class Victim(BaseModel):
     Id: str
     AllianceName: Optional[str]
     GuildName: Optional[str]
-    AverageItemPower: str
+    AverageItemPower: str = None
     Inventory: List
     Equipment: Any
 

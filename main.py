@@ -59,4 +59,6 @@ async def on_message(msg: Message):
 
 if __name__ == '__main__':
     client.run(DISCORD_TOKEN, log_handler=handle_logs(), log_level=logging.DEBUG)
+    # client.run(DISCORD_TOKEN)
+
 
