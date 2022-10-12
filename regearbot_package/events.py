@@ -3,6 +3,7 @@ from discord.message import Message
 from discord import Embed
 from regearbot_package.config import CHANNELS_ID
 from regearbot_package.api_calls import AlbionApi, ReGearCalls, MongoDataManager
+from regearbot_package.object_classes import ZvzApprovedBuild
 from random import choice
 
 
@@ -53,21 +54,22 @@ class Commands:
         await self.msg.author.send(embeds=embed_list)
 
     def check_if_command(self):
-        if self.content:
-            first_char = self.content[0][0]  # Checks for "!" sign
-            first_word = self.content[0][1:]  # Checks the command
-            commands_quantity = len(self.content)  # Checks quantity of args
-        else:
-            return 'msg'
+
+        first_char = self.content[0][0]  # Checks for "!" sign
+        first_word = self.content[0][1:]  # Checks the command
+        commands_quantity = len(self.content)  # Checks quantity of args
+
+        command_rules = [first_word == 'help' and commands_quantity == 1,
+                         first_word == 'pending' and commands_quantity == 1,
+                         first_word == 'pull_regear_requests' and commands_quantity == 1,
+                         first_word == "deaths" and commands_quantity == 2,
+                         first_word == "player_mmr" and commands_quantity == 2,
+                         first_word == "last_death" and commands_quantity == 2,
+                         first_word == 'regear' and commands_quantity == 3,
+                         first_word == 'add_setup']
 
         if first_char == '!':
-            if first_word == 'help' and commands_quantity == 1:
-                return 'yes'
-            elif first_word == 'pull_regear_requests' and commands_quantity == 1:
-                return 'yes'
-            elif first_word != 'help' and first_word != 'regear' and commands_quantity == 2:
-                return 'yes'
-            elif first_word == 'regear' and commands_quantity == 3:
+            if any(command_rules):
                 return 'yes'
             else:
                 return 'no'
@@ -84,28 +86,43 @@ class Commands:
                                        "    !regear <Player Name> <EventId>\n\n"
                                        "Admins Only:\n"
                                        "    !pull_regear_requests\n"
-                                       "    !regear_quantity <true/false>")
+                                       "    !pending")
 
     async def player_mmr_command(self):
         if self.content[0] == "!player_mmr" and self.msg.channel.id == self.users_channel:
-            mmr = AlbionApi.get_player_mmr(name=self.content[1])[-1]
-            msg = f'{self.content[1]} Recent Mmr: {mmr}'
-            await self.msg.channel.send(msg)
+
+            try:
+                mmr = AlbionApi.get_player_mmr(name=self.content[1])[-1]
+            except IndexError:
+                await self.msg.channel.send('No such player...')
+            else:
+                msg = f'{self.content[1]} Recent Mmr: {mmr}'
+                await self.msg.channel.send(msg)
 
     async def all_recent_deaths_command(self):
         if self.content[0] == "!deaths" and self.msg.channel.id == self.users_channel:
             api = ReGearCalls(name=self.content[1])
             api.get_deaths_info()
             api.get_display_format()
-            await self.msg.author.send('Processing information [approximately 10 seconds]...')
-            await self.create_regear_embed_objects(display_list=api.display_list)
+
+            try:
+                await self.create_regear_embed_objects(display_list=api.display_list)
+            except Exception as e:
+                print(e)
+                await self.msg.channel.send('No such player...')
+            else:
+                await self.msg.author.send('Processing information [approximately 10 seconds]...')
 
     async def last_death_command(self):
         if self.content[0] == "!last_death" and self.msg.channel.id == self.users_channel:
             api = ReGearCalls(name=self.content[1])
             api.get_deaths_info()
             api.get_display_format()
-            await self.create_regear_embed_objects(display_list=api.display_list, is_last=True)
+            try:
+                await self.create_regear_embed_objects(display_list=api.display_list, is_last=True)
+            except Exception as e:
+                print(e)
+                await self.msg.channel.send('No such player...')
 
     async def submit_regear_request_command(self):
         if self.content[0] == "!regear" and self.msg.channel.id == self.users_channel:
@@ -123,18 +140,32 @@ class Commands:
             await self.msg.channel.send(file=file)
 
     async def get_regear_quantity_from_db_command(self):
-        if self.content[0] == "!regear_quantity" and self.msg.channel.id == self.admins_channel:
+        if self.content[0] == "!pending" and self.msg.channel.id == self.admins_channel:
             mongo = MongoDataManager()
-            match self.content[1]:
-                case 'false':
-                    quantity = mongo.get_quantity_of_objects_by_regear(is_regeared=False)
-                    await self.msg.channel.send(f'Pending for regear: {quantity} players')
-                case 'true':
-                    quantity = mongo.get_quantity_of_objects_by_regear(is_regeared=True)
-                    await self.msg.channel.send(f'Regeared Players: {quantity}')
-                case _:
-                    await self.msg.channel.send('Invalid command, second argument must be true or false!')
-                    return
+            quantity = mongo.get_quantity_of_objects_by_regear(is_regeared=False)
+            await self.msg.channel.send(f'Pending for regear: {quantity} players')
+
+    async def create_zvz_build_object_command(self):
+        if self.content[0] == "!add_setup" and self.msg.channel.id == self.admins_channel:
+            # STEP[1]: checking for "[" and "]" signs in the command message
+            content = self.msg.content
+            index1 = content.find('[') + 1
+            index2 = content.find(']')
+            if index1 == 0 or index2 == -1:
+                await self.msg.channel.send('Wrong setup, check instructions!')
+                return
+
+            # STEP[2]: splitting the string and checking for correct length (6 items total)
+            content = content[index1:index2].split(",")
+            if len(content) != 6:
+                await self.msg.channel.send('Wrong setup, check instructions!')
+                return
+
+            # STEP[3]: creating build object and inserting the data from content
+            build = ZvzApprovedBuild()
+            build.create_zvz_build(content=content)
+
+            # STEP[4]: upload build to mongodb
 
 
 class Encourage:

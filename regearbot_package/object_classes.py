@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from typing import Any, List, Optional
 
+
 # queryTimeStamp: str = dt.now().strftime("%Y-%m-%d %H:%M:%S")
 
 
@@ -56,8 +57,24 @@ class Death(BaseModel):
         return self.dict()
 
 
+class ZvzApprovedBuild(BaseModel):
+    build_name: str = None
+    main_hand: str = None
+    off_hand: str = None
+    helmet: str = None
+    chest: str = None
+    boots: str = None
+
+    def create_zvz_build(self, content: list[str]):
+        self.build_name = content[0]
+        self.main_hand = content[1]
+        self.off_hand = content[2]
+        self.helmet = content[3]
+        self.chest = content[4]
+        self.boots = content[5]
 
 
-
-
-
+# if __name__ == '__main__':
+#     li = ['blalalalala', 'grovekeeper', 'any', 'knight helmet', 'guardian armor', 'knight boots']
+#     x = ZvzApprovedBuild()
+#     x.create_zvz_build(content=li)

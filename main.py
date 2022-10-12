@@ -35,8 +35,9 @@ async def on_message(msg: Message):
     if msg.author == client.user:
         return
 
-    encouragement = Encourage(msg=msg, client=client)
-    await encouragement.check_if_needs_encouragement()
+    # uncomment incase you want encouragement :)
+    # encouragement = Encourage(msg=msg, client=client)
+    # await encouragement.check_if_needs_encouragement()
 
     commands = Commands(msg=msg, client=client)
 
@@ -55,10 +56,10 @@ async def on_message(msg: Message):
         await commands.submit_regear_request_command()
         await commands.get_all_regear_requests_from_db_command()
         await commands.get_regear_quantity_from_db_command()
+        await commands.create_zvz_build_object_command()
 
 
 if __name__ == '__main__':
     client.run(DISCORD_TOKEN, log_handler=handle_logs(), log_level=logging.DEBUG)
-    # client.run(DISCORD_TOKEN)
 
 

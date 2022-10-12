@@ -25,7 +25,12 @@ class AlbionApi:
     @classmethod
     def get_player_id(cls, name: str) -> str:
         url = f'{cls.albion_url}/search?q={name}'
-        return requests.get(url=url).json()["players"][0].get("Id")
+        try:
+            response = requests.get(url=url).json()["players"][0].get("Id")
+        except IndexError:
+            pass
+        else:
+            return response
 
     @classmethod
     def get_player_info(cls, player_id: str) -> dict:
@@ -158,11 +163,16 @@ class ReGearCalls:
                 'Cape': [],
                 'MainHand': [],
                 'OffHand': [],
-                'Inventory': []}
+                'Inventory': [],
+                'Date': [],
+                'Time': []
+                }
         for doc in docs:
             temp['Name'].append(doc['Victim'].get('Name'))
             temp['EventId'].append(f"https://albiononline.com/en/killboard/kill/{doc.get('EventId')}")
             temp['AverageItemPower'].append(doc['Victim'].get('AverageItemPower'))
+            temp['Date'].append(doc.get('TimeStamp').split('T')[0])
+            temp['Time'].append(doc.get('TimeStamp').split('T')[1].split('.')[0])
 
             # checking for items in the dictionary, if none -> append empty string
             equipment = doc['Victim'].get('Equipment')
@@ -255,6 +265,14 @@ class MongoDataManager:
         query = {"is_regeared": True}
         new_values = {"$set": {"is_regeared": False}}
         self.collection.update_many(query, new_values)
+
+
+class MongoZvzBuildsManager:
+    def __init__(self):
+        self.client = MongoClient(MONGO_CLIENT.get('client'))
+        self.db = self.client.get_database(MONGO_CLIENT.get('db'))
+        self.collection = self.db.get_collection(MONGO_CLIENT.get('builds_collection'))
+
 
 
 def convert_item_codes_to_json():

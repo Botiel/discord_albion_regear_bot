@@ -1,7 +1,8 @@
 MONGO_CLIENT = {
     "client": '',
     "db": '',
-    "collection": ''
+    "collection": '',
+    "builds_collection": ''
 }
 DISCORD_TOKEN = ""
 CHANNELS_ID = {
