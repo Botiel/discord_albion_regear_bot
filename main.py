@@ -60,6 +60,12 @@ async def on_message(msg: Message):
 
 
 if __name__ == '__main__':
+    # run with logs file output
     client.run(DISCORD_TOKEN, log_handler=handle_logs(), log_level=logging.DEBUG)
+
+    # run without writing logs to a file
+    # client.run(DISCORD_TOKEN)
+
+
 
 

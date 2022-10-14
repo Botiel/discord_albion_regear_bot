@@ -59,7 +59,7 @@ class Commands:
         first_word = self.content[0][1:]  # Checks the command
         commands_quantity = len(self.content)  # Checks quantity of args
 
-        command_rules = [first_word == 'help' and commands_quantity == 1,
+        command_rules = [first_word == 'help_me' and commands_quantity == 1,
                          first_word == 'pending' and commands_quantity == 1,
                          first_word == 'pull_regear_requests' and commands_quantity == 1,
                          first_word == "deaths" and commands_quantity == 2,
@@ -77,7 +77,7 @@ class Commands:
         return 'msg'
 
     async def help_command(self):
-        if self.content[0] == "!help":
+        if self.content[0] == "!help_me":
             await self.msg.author.send("Greetings Noob!\n\n"
                                        "Users command List:\n"
                                        "    !player_mmr <Player Name>\n"
