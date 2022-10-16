@@ -273,6 +273,27 @@ class MongoZvzBuildsManager:
         self.db = self.client.get_database(MONGO_CLIENT.get('db'))
         self.collection = self.db.get_collection(MONGO_CLIENT.get('builds_collection'))
 
+    def upload_zvz_build(self, build: dict) -> dict:
+        try:
+            self.collection.insert_one(build)
+        except Exception as e:
+            return {'status': False, 'message': e}
+        else:
+            return {'status': True, 'message': 'Build Uploaded Successfully'}
+
+    def request_all_zvz_build_objects(self, query: str) -> dict:
+
+        if query == 'any':
+            cursor = self.collection.find()
+        else:
+            cursor = self.collection.find({'role': query})
+
+        try:
+            docs = list(cursor).copy()
+        except Exception as e:
+            return {'status': False, 'message': e}
+        else:
+            return {'status': True, 'content': docs}
 
 
 def convert_item_codes_to_json():
@@ -311,6 +332,7 @@ def convert_item_codes_to_json():
             if '@' in k:
                 enchant = k.split("@")[1]
                 v = f"{v}.{enchant}"
+            v = v.strip()
             items_dict.update({k: v})
         except Exception:
             pass
@@ -318,3 +340,6 @@ def convert_item_codes_to_json():
     file = folder + 'items_dict.json'
     with open(file, 'w') as f:
         json.dump(items_dict, f, indent=4)
+
+if __name__ == '__main__':
+    convert_item_codes_to_json()

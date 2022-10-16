@@ -42,7 +42,7 @@ async def on_message(msg: Message):
     commands = Commands(msg=msg, client=client)
 
     if commands.check_if_command() == 'no':
-        await msg.channel.send("Invalid Command, use !help")
+        await msg.channel.send("Invalid Command, use !help_me")
         return
 
     elif commands.check_if_command() == 'msg':
@@ -57,6 +57,8 @@ async def on_message(msg: Message):
         await commands.get_all_regear_requests_from_db_command()
         await commands.get_regear_quantity_from_db_command()
         await commands.create_zvz_build_object_command()
+        await commands.zvz_build_instructions_command()
+        await commands.show_zvz_available_builds()
 
 
 if __name__ == '__main__':
