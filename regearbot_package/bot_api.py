@@ -1,16 +1,16 @@
+from pydantic import BaseModel
+from typing import Any, List, Optional
+from datetime import datetime as dt
 import requests
-from pprint import pprint
-from regearbot_package.object_classes import Death
 from PIL import Image
-from pymongo import MongoClient
-from regearbot_package.config import MONGO_CLIENT
-import pandas as pd
 from io import BytesIO
 import discord
 import json
 import os
 import sys
-
+from pprint import pprint
+import pandas as pd
+from regearbot_package.mongo_database import MongoDataManager
 
 CURR_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.abspath(os.path.join(CURR_DIR, '../')))
@@ -27,8 +27,8 @@ class AlbionApi:
         url = f'{cls.albion_url}/search?q={name}'
         try:
             response = requests.get(url=url).json()["players"][0].get("Id")
-        except IndexError:
-            pass
+        except Exception as e:
+            print(f'\nError: {e} -> Trying to query non existing player!')
         else:
             return response
 
@@ -36,6 +36,10 @@ class AlbionApi:
     def get_player_info(cls, player_id: str) -> dict:
         url = f"{cls.albion_url}/players/{player_id}"
         return requests.get(url=url).json()
+
+    @classmethod
+    def request_death_data_by_event_id(cls, event_id: str) -> dict:
+        return requests.get(url=f"https://gameinfo.albiononline.com/api/gameinfo/events/{event_id}").json()
 
     @classmethod
     def request_death_info(cls, player_id: str) -> dict:
@@ -93,6 +97,155 @@ class AlbionApi:
         return discord.File(fp=arr, filename="items.png")
 
 
+class Victim(BaseModel):
+    Name: str
+    Id: str
+    AllianceName: Optional[str]
+    GuildName: Optional[str]
+    AverageItemPower: str = None
+    Inventory: List
+    inventory_as_png: List[str] = []
+    Equipment: Any
+
+    def check_inventory(self):  # Checking inventory for "SIEGEHAMMER"
+        if not self.Inventory:
+            return
+
+        inventory_li = []
+        for item in self.Inventory:
+            if item:
+                if "SIEGEHAMMER" in item.get('Type'):
+                    inventory_li.append(item.get('Type'))
+        self.Inventory.clear()
+        self.Inventory = inventory_li
+
+    def check_equipment(self):
+        equipment = []
+        equipment_to_ignore = ['Mount', 'Potion', 'Food', 'Bag']
+        for k, v in self.Equipment.items():
+            if k in equipment_to_ignore:
+                continue
+            else:
+                if v:
+                    equipment.append({k: v.get('Type')})
+                else:
+                    equipment.append({k: ''})
+        self.Equipment.clear()
+        self.Equipment = equipment
+
+    def convert_items_to_png_string(self):
+        if self.Equipment:
+            for item in self.Equipment:
+                for k, v in item.items():
+                    if v != "":
+                        temp = {'png': AlbionApi.request_render_item(item=v)}
+                    else:
+                        temp = {'png': ""}
+                    item.update(temp)
+                    break
+
+        if self.Inventory:
+            for item in self.Inventory:
+                self.inventory_as_png.append(AlbionApi.request_render_item(item=item))
+
+    def translate_items(self):
+
+        file = f'{ROOT_DIR}/regearbot_package/data/items_dict.json'
+        if not os.path.exists(file):
+            print('No such file -> items_dict.json')
+            return
+        else:
+            with open(file, 'r') as f:
+                items_data = json.load(f)
+
+        if self.Equipment:
+            for item in self.Equipment:
+                for k, v in item.items():
+                    temp = {}
+                    try:
+                        temp = {'item_name': items_data[v]}
+                    except Exception:
+                        temp = {'item_name': ''}
+                    finally:
+                        item.update(temp)
+                        break
+
+
+class Death(BaseModel):
+    submit_date: str = dt.now().strftime("%Y-%m-%d %H:%M:%S")
+    category: str = None
+    is_regeared: bool = False
+    TimeStamp: str
+    BattleId: int
+    EventId: int
+    KillArea: Optional[str]
+    Victim: Victim
+
+    def convert_to_dict(self):
+        self.Victim.check_inventory()
+        self.Victim.check_equipment()
+        self.Victim.convert_items_to_png_string()
+        self.Victim.translate_items()
+        return self.dict()
+
+
+class ZvzApprovedBuild(BaseModel):
+    time_stamp: str = dt.now().strftime("%Y-%m-%d %H:%M:%S")
+    role: str = None
+    item_power: float = 0.0
+    main_hand: str = None
+    off_hand: str = None
+    helmet: str = None
+    chest: str = None
+    boots: str = None
+    items_as_png: list[str] = []
+
+    def create_zvz_build(self, content: list[str]):
+        self.role = content[0]
+        self.main_hand = content[1]
+        self.off_hand = content[2]
+        self.helmet = content[3]
+        self.chest = content[4]
+        self.boots = content[5]
+        self.item_power = float(content[6])
+
+        # reading the items dictionary
+        file = f'{ROOT_DIR}/regearbot_package/data/items_dict.json'
+        with open(file, 'r') as f:
+            data = json.load(f)
+
+        for i in range(1, 6):
+            for k, v in data.items():
+                if v == content[i]:
+                    self.items_as_png.append(AlbionApi.request_render_item(item=k))
+
+    def validate_build_request(self, msg_content: str) -> dict:
+        roles = ['dps', 'healer', 'support', 'tank']
+
+        index1 = msg_content.find('[') + 1
+        index2 = msg_content.find(']')
+        if index1 == 0 or index2 == -1:
+            return {'status': False, 'message': 'Missing "[" or "]" in items setup'}
+
+        new_content = msg_content[index1:index2].split(",")
+        if len(new_content) < 7:
+            return {'status': False, 'message': 'Missing value'}
+
+        if len(new_content) > 7:
+            return {'status': False, 'message': 'Too many values'}
+
+        if new_content[0].lower() not in roles:
+            return {'status': False, 'message': 'Invalid role assignment'}
+
+        try:
+            ip = float(new_content[6])
+        except ValueError:
+            return {'status': False, 'message': 'ItemPower value is invalid'}
+
+        self.create_zvz_build(content=new_content)
+        return {'status': True}
+
+
 class ReGearCalls:
 
     def __init__(self, name: str):
@@ -116,26 +269,22 @@ class ReGearCalls:
                 "items_as_png": []
             }
 
-            # convert items to png
             equipment = victim['Victim'].get("Equipment")
-            inventory = victim['Victim'].get("Inventory")
+            for item in equipment:
+                if item.get("png") != "":
+                    temp["items_as_png"].append(item.get("png"))
 
-            if equipment:
-                for item in equipment:
-                    for k, v in item.items():
-                        temp["items_as_png"].append(AlbionApi.request_render_item(item=v))
-
-            if inventory:
-                for item in inventory:
-                    temp["items_as_png"].append(AlbionApi.request_render_item(item=item))
+            if victim['Victim'].get("inventory_as_png"):
+                temp["items_as_png"].extend(victim['Victim'].get("inventory_as_png"))
 
             self.display_list.append(temp)
 
-    def submit_regear_request(self, event_id: str):
+    @classmethod
+    def submit_regear_request(cls, event_id: str):
         mongo_client = MongoDataManager()
-        for item in self.victim_info_list:
-            if int(event_id) == item.get('EventId'):
-                return mongo_client.upload_objects_to_db(victim_object=item)
+        death_data = AlbionApi.request_death_data_by_event_id(event_id=event_id)
+        data_to_submit = Death(**death_data)
+        return mongo_client.upload_objects_to_db(victim_object=data_to_submit.convert_to_dict())
 
     @classmethod
     def convert_regear_objects_to_csv(cls):
@@ -143,15 +292,6 @@ class ReGearCalls:
         # STEP[1] Importing objects from mongodb
         mongo = MongoDataManager()
         docs = mongo.request_objects_to_regear()
-
-        # STEP[2] importing items dict
-        file = f'{ROOT_DIR}/regearbot_package/data/items_dict.json'
-        if not os.path.exists(file):
-            print('No such file -> items_dict.json')
-            return
-        else:
-            with open(file, 'r') as f:
-                items_data = json.load(f)
 
         # STEP[3] creating dataframe for csv
         temp = {'Name': [],
@@ -178,11 +318,14 @@ class ReGearCalls:
             equipment = doc['Victim'].get('Equipment')
             if equipment:
                 for item in equipment:
-                    for k, v in item.items():
-                        try:
-                            temp[k].append(items_data[v])
-                        except Exception:
-                            temp[k].append('')
+                    code = ''
+                    name = ''
+                    for i, key in enumerate(list(item)):
+                        if i == 0:
+                            code = key
+                        if i == 2:
+                            name = item[key]
+                    temp[code].append(name)
 
             # checking items in inventory, if none -> append empty string else append a list of the items
             inventory = doc['Victim'].get('Inventory')
@@ -206,94 +349,11 @@ class ReGearCalls:
         arr.seek(0)
 
         mongo.update_none_regeared_objects_to_regeared()
-
-        return discord.File(fp=arr, filename="regear_requests.csv")
+        now = dt.now().strftime("%Y-%m-%d")
+        return discord.File(fp=arr, filename=f"regear_requests_{now}.csv")
 
     def print_victim_death_list(self):
         pprint(self.victim_info_list)
-
-
-class MongoDataManager:
-    def __init__(self):
-        self.client = MongoClient(MONGO_CLIENT.get('client'))
-        self.db = self.client.get_database(MONGO_CLIENT.get('db'))
-        self.collection = self.db.get_collection(MONGO_CLIENT.get('collection'))
-
-    def upload_objects_to_db(self, victim_object: dict) -> bool:
-        # checks EventId, if no object with the same EventId -> Upload
-        event_id = victim_object.get('EventId')
-        query = self.collection.find_one({"EventId": event_id})
-
-        if query:
-            return False
-        else:
-            self.collection.insert_one(victim_object)
-            return True
-
-    def request_objects_to_regear(self) -> list:
-        # get all objects where is_regeared = False
-        query = {"is_regeared": False}
-        cursor = self.collection.find(query)
-        docs = list(cursor).copy()
-        return docs
-
-    def update_none_regeared_objects_to_regeared(self):
-        query = {"is_regeared": False}
-        new_values = {"$set": {"is_regeared": True}}
-        self.collection.update_many(query, new_values)
-
-    def get_quantity_of_objects_by_regear(self, is_regeared: bool) -> int:
-        query = {"is_regeared": is_regeared}
-        return self.collection.count_documents(query)
-
-    # ----------------- MANAGEMENT DEBUG METHODS -------------------
-
-    def debug_delete_objects_from_db(self, my_query: dict):
-        query = self.collection.delete_one(my_query)
-        print(query.deleted_count)
-
-    def debug_delete_multiple_objects_from_db(self):
-        my_query = {"category": "Victim_to_regear"}
-        query = self.collection.delete_many(my_query)
-        print(query.deleted_count, " jsons deleted.")
-
-    def debug_search_object_by_event_id(self, event_id: int) -> bool:
-        query = self.collection.find_one({"EventId": event_id})
-        return True if query else False
-
-    def debug_set_objects_to_not_regeared(self):
-        query = {"is_regeared": True}
-        new_values = {"$set": {"is_regeared": False}}
-        self.collection.update_many(query, new_values)
-
-
-class MongoZvzBuildsManager:
-    def __init__(self):
-        self.client = MongoClient(MONGO_CLIENT.get('client'))
-        self.db = self.client.get_database(MONGO_CLIENT.get('db'))
-        self.collection = self.db.get_collection(MONGO_CLIENT.get('builds_collection'))
-
-    def upload_zvz_build(self, build: dict) -> dict:
-        try:
-            self.collection.insert_one(build)
-        except Exception as e:
-            return {'status': False, 'message': e}
-        else:
-            return {'status': True, 'message': 'Build Uploaded Successfully'}
-
-    def request_all_zvz_build_objects(self, query: str) -> dict:
-
-        if query == 'any':
-            cursor = self.collection.find()
-        else:
-            cursor = self.collection.find({'role': query})
-
-        try:
-            docs = list(cursor).copy()
-        except Exception as e:
-            return {'status': False, 'message': e}
-        else:
-            return {'status': True, 'content': docs}
 
 
 def convert_item_codes_to_json():
@@ -340,6 +400,3 @@ def convert_item_codes_to_json():
     file = folder + 'items_dict.json'
     with open(file, 'w') as f:
         json.dump(items_dict, f, indent=4)
-
-if __name__ == '__main__':
-    convert_item_codes_to_json()

@@ -2,9 +2,8 @@ from discord.client import Client
 from discord.message import Message
 from discord import Embed
 from regearbot_package.config import CHANNELS_ID
-from regearbot_package.api_calls import AlbionApi, ReGearCalls, MongoDataManager, MongoZvzBuildsManager
-from regearbot_package.object_classes import ZvzApprovedBuild
-from random import choice
+from regearbot_package.mongo_database import MongoDataManager, MongoZvzBuildsManager
+from regearbot_package.bot_api import ZvzApprovedBuild, ReGearCalls, AlbionApi
 
 
 class Commands:
@@ -17,7 +16,7 @@ class Commands:
         self.client = client
         self.content = self.msg.content.split(" ")
 
-    async def create_zvz_build_embed_objects(self, build_list: list):
+    async def create_zvz_build_embed_objects(self, build_list: list, query: str):
 
         embed_list = []
 
@@ -34,15 +33,16 @@ class Commands:
                    f'**Boots:** {build["boots"]}\n' \
                    f'**Item Power:** {build["item_power"]}\n'
 
-            # Concatenating all item images to a single image
-            file = AlbionApi.convert_images_to_a_single_image(image_list=build["items_as_png"])
-
-            # Getting images channel id for uploading images
-            images_channel = self.client.get_channel(self.images_channel)
-            msg_id = await images_channel.send(file=file)
-
             embed = Embed(title=f'Zvz Build: {build.get("role")}', description=desc)
-            embed.set_image(url=msg_id.attachments[0].url)
+
+            if query != 'any':
+                # Concatenating all item images to a single image
+                file = AlbionApi.convert_images_to_a_single_image(image_list=build["items_as_png"])
+                # Getting images channel id for uploading images
+                images_channel = self.client.get_channel(self.images_channel)
+                msg_id = await images_channel.send(file=file)
+                embed.set_image(url=msg_id.attachments[0].url)
+
             embed_list.append(embed)
 
         # Send to author all death embed objects
@@ -96,7 +96,7 @@ class Commands:
                          first_word == "deaths" and commands_quantity == 2,
                          first_word == "player_mmr" and commands_quantity == 2,
                          first_word == "last_death" and commands_quantity == 2,
-                         first_word == 'regear' and commands_quantity == 3,
+                         first_word == 'regear' and commands_quantity == 2,
                          first_word == 'zvz_build_instructions' and commands_quantity == 1,
                          first_word == 'show_builds' and commands_quantity == 2,
                          first_word == 'add_setup']
@@ -116,11 +116,12 @@ class Commands:
             users_desc = "!player_mmr <Player Name>\n\n" \
                          "!deaths <Player Name>\n\n" \
                          "!last_death <Player Name>\n\n" \
-                         "!regear <Player Name> <EventId>"
+                         "!regear <EventId>"
 
             admins_desc = "!pull_regear_requests\n\n" \
                           "!pending\n\n" \
-                          "!zvz_build_instructions"
+                          "!zvz_build_instructions\n\n" \
+                          "!show_builds <dps, healer, tank, support, any>"
 
             # !help_me embed item by channel
             users_embed = Embed(title='User Commands:', description=users_desc)
@@ -152,13 +153,13 @@ class Commands:
             api.get_deaths_info()
             api.get_display_format()
 
+            await self.msg.author.send('Processing information [approximately 20 seconds]...\nPulling last 10 deaths!')
+
             try:
                 await self.create_regear_embed_objects(display_list=api.display_list)
             except Exception as e:
                 print(e)
                 await self.msg.channel.send('No such player...')
-            else:
-                await self.msg.author.send('Processing information [approximately 10 seconds]...')
 
     async def last_death_command(self):
         if self.content[0] == "!last_death" and self.msg.channel.id == self.users_channel:
@@ -173,14 +174,13 @@ class Commands:
 
     async def submit_regear_request_command(self):
         if self.content[0] == "!regear" and self.msg.channel.id == self.users_channel:
-            api = ReGearCalls(name=self.content[1])
-            api.get_deaths_info()
-            if api.submit_regear_request(event_id=self.content[2]):
-                desc = f'Event Id: {self.content[2]}\nStatus: submitted successfully'
+
+            if ReGearCalls.submit_regear_request(event_id=self.content[1]):
+                desc = f'Event Id: {self.content[1]}\nStatus: submitted successfully'
                 embed = Embed(title='Regear Request:', description=desc)
                 await self.msg.channel.send(embed=embed)
             else:
-                desc = f'Event Id: {self.content[2]}\nStatus: has already been submitted or not exist!'
+                desc = f'Event Id: {self.content[1]}\nStatus: has already been submitted or not exist!'
                 embed = Embed(title='Regear Request:', description=desc)
                 await self.msg.channel.send(embed=embed)
 
@@ -225,7 +225,7 @@ class Commands:
             desc = "How to add zvz approved build:\n\n" \
                    "Example:\n!add_setup [role,main_hand,off_hand,helmet,chest,boots,item_power]\n\n" \
                    "1. start with !add_setup command followed by a space bar\n" \
-                   "2. build must me enclosed by brackets []\n" \
+                   "2. build must me enclosed by brackets [ ]\n" \
                    "3. insert values in the same order as in the example\n" \
                    "4. if there is no off_hand item, insert: any\n" \
                    "5. number of values inside the brackets must be 7\n" \
@@ -246,23 +246,4 @@ class Commands:
                 await self.msg.channel.send('No Builds in the DataBase...')
             else:
                 await self.msg.channel.send('Processing Information...')
-                await self.create_zvz_build_embed_objects(build_list=response.get('content'))
-
-
-class Encourage:
-    sad_words = ['sad', 'noob', 'angry', 'unhappy', 'depressed']
-    encouragements = [
-        "Cheer up! grind more!",
-        "Dont be sad, Yocttar is much noober than you :)",
-        "You are great! at least you are not fat like yocttar! :D",
-        "Don't worry! one day you will be good at this game!"
-    ]
-
-    def __init__(self, msg: Message, client: Client):
-        self.msg = msg
-        self.client = client
-        self.content = self.msg.content
-
-    async def check_if_needs_encouragement(self):
-        if any(word in self.content for word in self.sad_words):
-            await self.msg.channel.send(choice(self.encouragements))
+                await self.create_zvz_build_embed_objects(build_list=response.get('content'), query=self.content[1])

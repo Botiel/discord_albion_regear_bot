@@ -1,5 +1,5 @@
 from regearbot_package.config import DISCORD_TOKEN
-from regearbot_package.events import Commands, Encourage
+from regearbot_package.events import Commands
 from discord.message import Message
 import discord
 import logging
@@ -35,10 +35,6 @@ async def on_message(msg: Message):
     if msg.author == client.user:
         return
 
-    # uncomment incase you want encouragement :)
-    # encouragement = Encourage(msg=msg, client=client)
-    # await encouragement.check_if_needs_encouragement()
-
     commands = Commands(msg=msg, client=client)
 
     if commands.check_if_command() == 'no':
@@ -62,11 +58,11 @@ async def on_message(msg: Message):
 
 
 if __name__ == '__main__':
-    # run with logs file output
-    client.run(DISCORD_TOKEN, log_handler=handle_logs(), log_level=logging.DEBUG)
-
     # run without writing logs to a file
-    # client.run(DISCORD_TOKEN)
+    client.run(DISCORD_TOKEN)
+
+    # run with logs file output
+    # client.run(DISCORD_TOKEN, log_handler=handle_logs(), log_level=logging.DEBUG)
 
 
 
