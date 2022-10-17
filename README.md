@@ -5,6 +5,13 @@
 - Assisted by: Tidal albion guild
 - Discord channel: https://discord.gg/eThMPjrytA
 
+# DISCLAIMER!
+  - this bot is a work in progress.
+  - daily maintained and updated.
+  - TODO:
+    1. add verification of item power before submitting a regear request
+    2. add "regear eligibility" column in the csv file
+
 # 1. How it works
 
   - You can either run it locally on your machine or on a docker container in the cloud.
