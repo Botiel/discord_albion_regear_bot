@@ -52,9 +52,9 @@ async def on_message(msg: Message):
         await commands.submit_regear_request_command()
         await commands.get_all_regear_requests_from_db_command()
         await commands.get_regear_quantity_from_db_command()
-        await commands.create_zvz_build_object_command()
-        await commands.zvz_build_instructions_command()
-        await commands.show_zvz_available_builds()
+        await commands.get_builds_sheet_template_command()
+        await commands.upload_zvz_builds_command()
+        await commands.clear_zvz_builds_collection()
 
 
 if __name__ == '__main__':

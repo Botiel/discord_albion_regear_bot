@@ -3,6 +3,7 @@ regearbot_package/config.py
 .idea/
 debug.py
 export_release_version.py
+depreceted/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

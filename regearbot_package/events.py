@@ -3,7 +3,7 @@ from discord.message import Message
 from discord import Embed
 from regearbot_package.config import CHANNELS_ID
 from regearbot_package.mongo_database import MongoDataManager, MongoZvzBuildsManager
-from regearbot_package.bot_api import ZvzApprovedBuild, ReGearCalls, AlbionApi
+from regearbot_package.bot_api import ReGearCalls, AlbionApi, DataConversion
 
 
 class Commands:
@@ -15,38 +15,6 @@ class Commands:
         self.msg = msg
         self.client = client
         self.content = self.msg.content.split(" ")
-
-    async def create_zvz_build_embed_objects(self, build_list: list, query: str):
-
-        embed_list = []
-
-        # Creating an Embed description variable
-        for i, build in enumerate(build_list):
-            date = build['time_stamp'].split(' ')[0]
-            time = build['time_stamp'].split(' ')[1]
-            desc = f'**Date:** {date}\n' \
-                   f'**Time:** {time}\n\n' \
-                   f'**Main Hand:** {build["main_hand"]}\n' \
-                   f'**Off Hand:** {build["off_hand"]}\n' \
-                   f'**Helmet:** {build["helmet"]}\n' \
-                   f'**Chest:** {build["chest"]}\n' \
-                   f'**Boots:** {build["boots"]}\n' \
-                   f'**Item Power:** {build["item_power"]}\n'
-
-            embed = Embed(title=f'Zvz Build: {build.get("role")}', description=desc)
-
-            if query != 'any':
-                # Concatenating all item images to a single image
-                file = AlbionApi.convert_images_to_a_single_image(image_list=build["items_as_png"])
-                # Getting images channel id for uploading images
-                images_channel = self.client.get_channel(self.images_channel)
-                msg_id = await images_channel.send(file=file)
-                embed.set_image(url=msg_id.attachments[0].url)
-
-            embed_list.append(embed)
-
-        # Send to author all death embed objects
-        await self.msg.channel.send(embeds=embed_list)
 
     async def create_regear_embed_objects(self, display_list: list, is_last=False):
 
@@ -97,8 +65,9 @@ class Commands:
                          first_word == "player_mmr" and commands_quantity == 2,
                          first_word == "last_death" and commands_quantity == 2,
                          first_word == 'regear' and commands_quantity == 2,
-                         first_word == 'zvz_build_instructions' and commands_quantity == 1,
-                         first_word == 'show_builds' and commands_quantity == 2,
+                         first_word == 'get_builds_sheet_template' and commands_quantity == 1,
+                         first_word == 'upload_zvz_builds' and commands_quantity == 1,
+                         first_word == 'clear_zvz_builds' and commands_quantity == 1,
                          first_word == 'add_setup']
 
         if first_char == '!':
@@ -120,8 +89,9 @@ class Commands:
 
             admins_desc = "!pull_regear_requests\n\n" \
                           "!pending\n\n" \
-                          "!zvz_build_instructions\n\n" \
-                          "!show_builds <dps, healer, tank, support, any>"
+                          "!get_builds_sheet_template\n\n" \
+                          "!upload_zvz_builds\n\n" \
+                          "!clear_zvz_builds"
 
             # !help_me embed item by channel
             users_embed = Embed(title='User Commands:', description=users_desc)
@@ -200,50 +170,50 @@ class Commands:
             embed = Embed(title='Regearing Status:', description=desc)
             await self.msg.channel.send(embed=embed)
 
-    async def create_zvz_build_object_command(self):
-        if self.content[0] == "!add_setup" and self.msg.channel.id == self.admins_channel:
+    async def get_builds_sheet_template_command(self):
+        if self.content[0] == "!get_builds_sheet_template" and self.msg.channel.id == self.admins_channel:
+            await self.msg.channel.send(file=DataConversion.get_builds_sheet())
 
-            # STEP[1]: create and validate build
-            build = ZvzApprovedBuild()
-            validate = build.validate_build_request(msg_content=self.msg.content)
-            if not validate.get('status'):
-                embed = Embed(title='Setup Error:',
-                              description=f'error type: {validate.get("message")}\n\nCheck Instructions!')
+    async def upload_zvz_builds_command(self):
+        if self.content[0] == "!upload_zvz_builds" and self.msg.channel.id == self.admins_channel:
+            try:
+                attachment = self.msg.attachments[0]
+            except Exception as e:
+                embed = Embed(title="Upload Error",
+                              description=f"**message:** No files attached to the command...\n**Error:** {e}")
                 await self.msg.channel.send(embed=embed)
                 return
 
-            # STEP[2]: upload build to mongodb
-            mongo = MongoZvzBuildsManager()
-            result = mongo.upload_zvz_build(build=build.dict())
-            if result.get('status'):
-                await self.msg.channel.send(result.get('message'))
+            await attachment.save("./regearbot_package/data/zvz_builds_to_upload.xlsx")
+            try:
+                builds = DataConversion.convert_zvz_builds_sheet_to_dict()
+            except Exception as e:
+                embed = Embed(title="Upload Error", description=f"**Error:** {e}")
+                await self.msg.channel.send(embed=embed)
             else:
-                await self.msg.channel.send(f"Something went wrong!\nError: {result.get('message')}")
+                mongo = MongoZvzBuildsManager()
+                response = mongo.upload_zvz_builds(builds=builds)
 
-    async def zvz_build_instructions_command(self):
-        if self.content[0] == "!zvz_build_instructions" and self.msg.channel.id == self.admins_channel:
-            desc = "How to add zvz approved build:\n\n" \
-                   "Example:\n!add_setup [role,main_hand,off_hand,helmet,chest,boots,item_power]\n\n" \
-                   "1. start with !add_setup command followed by a space bar\n" \
-                   "2. build must me enclosed by brackets [ ]\n" \
-                   "3. insert values in the same order as in the example\n" \
-                   "4. if there is no off_hand item, insert: any\n" \
-                   "5. number of values inside the brackets must be 7\n" \
-                   "6. all values must be comma separated with no spaces (csv style)\n" \
-                   "7. roles: dps, healer, tank, support"
-            embed = Embed(title='Zvz build instructions', description=desc)
-            await self.msg.author.send(embed=embed)
+                embed = Embed(title="Upload Status")
+                if response.get("status"):
+                    embed.description = f"**message:** {response.get('message')}"
+                else:
+                    embed.description = f"**message:** {response.get('message')}\n**error**: {response.get('error')}"
 
-    async def show_zvz_available_builds(self):
-        if self.content[0] == "!show_builds" and self.msg.channel.id == self.admins_channel:
+                await self.msg.channel.send(embed=embed)
+
+    async def clear_zvz_builds_collection(self):
+        if self.content[0] == "!clear_zvz_builds" and self.msg.channel.id == self.admins_channel:
             mongo = MongoZvzBuildsManager()
-            response = mongo.request_all_zvz_build_objects(query=self.content[1])
+            response = mongo.clear_zvz_builds()
+            embed = Embed(title="Zvz Builds Collection Status:")
 
-            if not response.get('status'):
-                await self.msg.channel.send(f"Something went wrong!\nError: {response.get('message')}")
-
-            if not response.get('content'):
-                await self.msg.channel.send('No Builds in the DataBase...')
+            if response.get("status"):
+                embed.description = f"**message:** {response.get('message')}\n**deleted builds:** {response.get('count')}"
             else:
-                await self.msg.channel.send('Processing Information...')
-                await self.create_zvz_build_embed_objects(build_list=response.get('content'), query=self.content[1])
+                embed.description = f"**message:** {response.get('message')}\n**error:** {response.get('error')}"
+
+            await self.msg.channel.send(embed=embed)
+
+
+

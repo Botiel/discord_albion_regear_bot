@@ -189,63 +189,6 @@ class Death(BaseModel):
         return self.dict()
 
 
-class ZvzApprovedBuild(BaseModel):
-    time_stamp: str = dt.now().strftime("%Y-%m-%d %H:%M:%S")
-    role: str = None
-    item_power: float = 0.0
-    main_hand: str = None
-    off_hand: str = None
-    helmet: str = None
-    chest: str = None
-    boots: str = None
-    items_as_png: list[str] = []
-
-    def create_zvz_build(self, content: list[str]):
-        self.role = content[0]
-        self.main_hand = content[1]
-        self.off_hand = content[2]
-        self.helmet = content[3]
-        self.chest = content[4]
-        self.boots = content[5]
-        self.item_power = float(content[6])
-
-        # reading the items dictionary
-        file = f'{ROOT_DIR}/regearbot_package/data/items_dict.json'
-        with open(file, 'r') as f:
-            data = json.load(f)
-
-        for i in range(1, 6):
-            for k, v in data.items():
-                if v == content[i]:
-                    self.items_as_png.append(AlbionApi.request_render_item(item=k))
-
-    def validate_build_request(self, msg_content: str) -> dict:
-        roles = ['dps', 'healer', 'support', 'tank']
-
-        index1 = msg_content.find('[') + 1
-        index2 = msg_content.find(']')
-        if index1 == 0 or index2 == -1:
-            return {'status': False, 'message': 'Missing "[" or "]" in items setup'}
-
-        new_content = msg_content[index1:index2].split(",")
-        if len(new_content) < 7:
-            return {'status': False, 'message': 'Missing value'}
-
-        if len(new_content) > 7:
-            return {'status': False, 'message': 'Too many values'}
-
-        if new_content[0].lower() not in roles:
-            return {'status': False, 'message': 'Invalid role assignment'}
-
-        try:
-            ip = float(new_content[6])
-        except ValueError:
-            return {'status': False, 'message': 'ItemPower value is invalid'}
-
-        self.create_zvz_build(content=new_content)
-        return {'status': True}
-
-
 class ReGearCalls:
 
     def __init__(self, name: str):
@@ -356,47 +299,81 @@ class ReGearCalls:
         pprint(self.victim_info_list)
 
 
-def convert_item_codes_to_json():
-    folder = f'{ROOT_DIR}/regearbot_package/data/'
-    file = folder + 'item_codes_raw.text'
-    with open(file, 'r') as f:
-        data = f.readlines()
+class DataConversion:
+    @staticmethod
+    def convert_item_codes_to_json():
+        folder = f'{ROOT_DIR}/regearbot_package/data/'
+        file = folder + 'item_codes_raw.text'
+        with open(file, 'r') as f:
+            data = f.readlines()
 
-    rank = {
-        "Beginner's": '1',
-        "Novice's": '2',
-        "Journeyman's": '3',
-        "Adept's": '4',
-        "Expert's": '5',
-        "Master's": '6',
-        "Grandmaster's": '7',
-        "Elder's": '8'
-    }
+        rank = {
+            "Beginner's": '1',
+            "Novice's": '2',
+            "Journeyman's": '3',
+            "Adept's": '4',
+            "Expert's": '5',
+            "Master's": '6',
+            "Grandmaster's": '7',
+            "Elder's": '8'
+        }
 
-    items_dict = {}
-    for item in data:
-        temp = item.replace("\n", "").split(':')
-        try:
-            k = temp[1].replace(" ", "")
-            v = temp[2]
-
+        items_dict = {}
+        for item in data:
+            temp = item.replace("\n", "").split(':')
             try:
-                tier_name = v.split(' ')[1]
-                tier_code = rank[tier_name]
+                k = temp[1].replace(" ", "")
+                v = temp[2]
+
+                try:
+                    tier_name = v.split(' ')[1]
+                    tier_code = rank[tier_name]
+                except Exception:
+                    pass
+                else:
+                    v = v.replace(tier_name, "")
+                    v = f"{v} {tier_code}"
+
+                if '@' in k:
+                    enchant = k.split("@")[1]
+                    v = f"{v}.{enchant}"
+                v = v.strip()
+                items_dict.update({k: v})
             except Exception:
                 pass
-            else:
-                v = v.replace(tier_name, "")
-                v = f"{v} {tier_code}"
 
-            if '@' in k:
-                enchant = k.split("@")[1]
-                v = f"{v}.{enchant}"
-            v = v.strip()
-            items_dict.update({k: v})
-        except Exception:
-            pass
+        file = folder + 'items_dict.json'
+        with open(file, 'w') as f:
+            json.dump(items_dict, f, indent=4)
 
-    file = folder + 'items_dict.json'
-    with open(file, 'w') as f:
-        json.dump(items_dict, f, indent=4)
+    @staticmethod
+    def convert_items_dict_to_xlsx():
+        file = f'{ROOT_DIR}/regearbot_package/data/items_dict.json'
+        with open(file, 'r') as f:
+            data = json.load(f)
+
+        df = pd.DataFrame(data.items(), columns=['item_code', 'item_name'])
+        df.to_excel('items.xlsx')
+
+    @staticmethod
+    def get_items_file() -> discord.File:
+        file = f'{ROOT_DIR}/regearbot_package/data/items_dict.json'
+        return discord.File(fp=file, filename="items_dictionary.json")
+
+    @staticmethod
+    def get_builds_sheet() -> discord.File:
+        file = f'{ROOT_DIR}/regearbot_package/data/zvz_builds_sheet_template.xlsx'
+        return discord.File(fp=file, filename="zvz_builds_sheet_template.xlsx")
+
+    @staticmethod
+    def convert_zvz_builds_sheet_to_dict() -> list:
+        file = f"{ROOT_DIR}/regearbot_package/data/zvz_builds_to_upload.xlsx"
+        df = pd.read_excel(file, sheet_name="builds")
+        df.fillna('', inplace=True)
+        builds = df.to_dict(orient="index")
+        builds_li = []
+        for k, v in builds.items():
+            builds_li.append(v)
+
+        return builds_li
+

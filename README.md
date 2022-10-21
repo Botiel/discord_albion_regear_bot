@@ -43,14 +43,7 @@ for admins:
 
 # 5. How to create zvz approved build:
 
-  - Example: !add_setup [role,main_hand,off_hand,helmet,chest,boots,item_power]
-  1. start with !add_setup command followed by a space bar
-  2. build must me enclosed by brackets [ ]
-  3. insert values in the same order as in the example\n
-  4. if there is no off_hand item, insert: any
-  5. number of values inside the brackets must be 7
-  6. all values must be comma separated with no spaces (csv style)
-  7. roles: dps, healer, tank, support
+
 
 
 

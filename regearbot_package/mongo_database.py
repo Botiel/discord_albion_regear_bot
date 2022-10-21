@@ -61,24 +61,19 @@ class MongoZvzBuildsManager:
         self.db = self.client.get_database(MONGO_CLIENT.get('db'))
         self.collection = self.db.get_collection(MONGO_CLIENT.get('builds_collection'))
 
-    def upload_zvz_build(self, build: dict) -> dict:
+    def upload_zvz_builds(self, builds: list[dict]) -> dict:
         try:
-            self.collection.insert_one(build)
+            self.collection.insert_many(builds)
         except Exception as e:
-            return {'status': False, 'message': e}
+            return {"status": False, "message": "an error occurred while uploading data", "error": {e}}
         else:
-            return {'status': True, 'message': 'Build Uploaded Successfully'}
+            return {"status": True, "message": "data uploaded successfully"}
 
-    def request_all_zvz_build_objects(self, query: str) -> dict:
-
-        if query == 'any':
-            cursor = self.collection.find()
-        else:
-            cursor = self.collection.find({'role': query})
-
+    def clear_zvz_builds(self):
         try:
-            docs = list(cursor).copy()
+            response = self.collection.delete_many({})
         except Exception as e:
-            return {'status': False, 'message': e}
+            return {"status": False, "message": "an error occurred while uploading data", "error": {e}}
         else:
-            return {'status': True, 'content': docs}
+            return {"status": True, "message": "builds collection wiped successfully", "count": {response.deleted_count}}
+
