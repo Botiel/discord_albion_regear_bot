@@ -54,7 +54,9 @@ async def on_message(msg: Message):
         await commands.get_regear_quantity_from_db_command()
         await commands.get_builds_sheet_template_command()
         await commands.upload_zvz_builds_command()
-        await commands.clear_zvz_builds_collection()
+        await commands.clear_zvz_builds_collection_command()
+        await commands.deny_event_id_command()
+        await commands.remove_regear_request_command()
 
 
 if __name__ == '__main__':

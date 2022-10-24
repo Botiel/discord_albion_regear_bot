@@ -11,6 +11,7 @@ import sys
 from pprint import pprint
 import pandas as pd
 from regearbot_package.mongo_database import MongoDataManager
+from regearbot_package.config import GUILD_NAME
 
 CURR_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.abspath(os.path.join(CURR_DIR, '../')))
@@ -173,7 +174,7 @@ class Victim(BaseModel):
 
 class Death(BaseModel):
     submit_date: str = dt.now().strftime("%Y-%m-%d %H:%M:%S")
-    category: str = None
+    category: str = "regear_request"
     is_regeared: bool = False
     TimeStamp: str
     BattleId: int
@@ -227,7 +228,19 @@ class ReGearCalls:
         mongo_client = MongoDataManager()
         death_data = AlbionApi.request_death_data_by_event_id(event_id=event_id)
         data_to_submit = Death(**death_data)
-        return mongo_client.upload_objects_to_db(victim_object=data_to_submit.convert_to_dict())
+
+        # Validating Regearing request by guild name
+        if data_to_submit.Victim.GuildName != GUILD_NAME:
+            return {"status": False, "message": f"only members of [{GUILD_NAME}] can submit regearing!"}
+
+        # Validating Regearing request by deny list
+        elif mongo_client.check_if_event_id_is_denied(event_id=int(event_id)):
+            return {"status": False, "message": f"EventId {event_id} is denied!"}
+
+        else:
+            response = mongo_client.upload_objects_to_db(victim_object=data_to_submit.convert_to_dict())
+            return {"status": response} if response else {"status": response,
+                                                          "message": "Event has already been submitted or not exist!"}
 
     @classmethod
     def convert_regear_objects_to_csv(cls):
@@ -376,4 +389,3 @@ class DataConversion:
             builds_li.append(v)
 
         return builds_li
-

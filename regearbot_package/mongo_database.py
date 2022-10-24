@@ -9,6 +9,7 @@ class MongoDataManager:
         self.collection = self.db.get_collection(MONGO_CLIENT.get('collection'))
 
     def upload_objects_to_db(self, victim_object: dict) -> bool:
+
         # checks EventId, if no object with the same EventId -> Upload
         event_id = victim_object.get('EventId')
         query = self.collection.find_one({"EventId": event_id})
@@ -34,6 +35,29 @@ class MongoDataManager:
     def get_quantity_of_objects_by_regear(self, is_regeared: bool) -> int:
         query = {"is_regeared": is_regeared}
         return self.collection.count_documents(query)
+
+    def add_denied_event_id(self, event_id: int):
+
+        query = {"category": "denied_events"}
+
+        if not self.collection.find_one(query):
+            self.collection.insert_one({"category": "denied_events", "events": [event_id]})
+        else:
+            temp = self.collection.find_one(query)
+            if event_id not in temp["events"]:
+                temp["events"].append(event_id)
+                self.collection.delete_one(query)
+                self.collection.insert_one(temp)
+
+    def remove_object_by_event_id(self, event_id: int) -> int:
+        query = self.collection.delete_one({"EventId": event_id})
+        return query.deleted_count
+
+    def check_if_event_id_is_denied(self, event_id) -> bool:
+        denied_object = self.collection.find_one({"category": "denied_events"})
+        if denied_object:
+            if event_id in denied_object["events"]:
+                return True
 
     # ----------------- MANAGEMENT DEBUG METHODS -------------------
 
@@ -75,5 +99,5 @@ class MongoZvzBuildsManager:
         except Exception as e:
             return {"status": False, "message": "an error occurred while uploading data", "error": {e}}
         else:
-            return {"status": True, "message": "builds collection wiped successfully", "count": {response.deleted_count}}
-
+            return {"status": True, "message": "builds collection wiped successfully",
+                    "count": {response.deleted_count}}

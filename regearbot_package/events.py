@@ -64,6 +64,8 @@ class Commands:
                          first_word == "deaths" and commands_quantity == 2,
                          first_word == "player_mmr" and commands_quantity == 2,
                          first_word == "last_death" and commands_quantity == 2,
+                         first_word == 'remove_request' and commands_quantity == 2,
+                         first_word == 'deny' and commands_quantity == 2,
                          first_word == 'regear' and commands_quantity == 2,
                          first_word == 'get_builds_sheet_template' and commands_quantity == 1,
                          first_word == 'upload_zvz_builds' and commands_quantity == 1,
@@ -91,7 +93,9 @@ class Commands:
                           "!pending\n\n" \
                           "!get_builds_sheet_template\n\n" \
                           "!upload_zvz_builds\n\n" \
-                          "!clear_zvz_builds"
+                          "!clear_zvz_builds\n\n" \
+                          "!remove_request <EventId>\n\n" \
+                          "!deny <EventId>"
 
             # !help_me embed item by channel
             users_embed = Embed(title='User Commands:', description=users_desc)
@@ -144,15 +148,18 @@ class Commands:
 
     async def submit_regear_request_command(self):
         if self.content[0] == "!regear" and self.msg.channel.id == self.users_channel:
+            response = ReGearCalls.submit_regear_request(event_id=self.content[1])
+            embed = Embed(title='Regear Request status:')
 
-            if ReGearCalls.submit_regear_request(event_id=self.content[1]):
-                desc = f'Event Id: {self.content[1]}\nStatus: submitted successfully'
-                embed = Embed(title='Regear Request:', description=desc)
-                await self.msg.channel.send(embed=embed)
+            if response.get("status"):
+                desc = f'**Event Id:** {self.content[1]}\n**response:** submitted successfully'
+                embed.description = desc
             else:
-                desc = f'Event Id: {self.content[1]}\nStatus: has already been submitted or not exist!'
-                embed = Embed(title='Regear Request:', description=desc)
-                await self.msg.channel.send(embed=embed)
+                desc = f'**Event Id:** {self.content[1]}\n**response:** request denied!\n' \
+                       f'**message**: {response.get("message")}'
+                embed.description = desc
+
+            await self.msg.channel.send(embed=embed)
 
     async def get_all_regear_requests_from_db_command(self):
         if self.content[0] == "!pull_regear_requests" and self.msg.channel.id == self.admins_channel:
@@ -202,7 +209,7 @@ class Commands:
 
                 await self.msg.channel.send(embed=embed)
 
-    async def clear_zvz_builds_collection(self):
+    async def clear_zvz_builds_collection_command(self):
         if self.content[0] == "!clear_zvz_builds" and self.msg.channel.id == self.admins_channel:
             mongo = MongoZvzBuildsManager()
             response = mongo.clear_zvz_builds()
@@ -214,6 +221,57 @@ class Commands:
                 embed.description = f"**message:** {response.get('message')}\n**error:** {response.get('error')}"
 
             await self.msg.channel.send(embed=embed)
+
+    async def remove_regear_request_command(self):
+        if self.content[0] == "!remove_request" and self.msg.channel.id == self.admins_channel:
+            embed = Embed(title="Remove request status:")
+
+            try:
+                event_id = int(self.content[1])
+            except ValueError:
+                embed.description = "**error**: EventId must be a number"
+                await self.msg.channel.send(embed=embed)
+                return
+
+            mongo = MongoDataManager()
+
+            try:
+                response = mongo.remove_object_by_event_id(event_id=event_id)
+            except Exception as e:
+                embed.description = f"**error**: {e}"
+                await self.msg.channel.send(embed=embed)
+                return
+
+            if response:
+                embed.description = f"**message**: removed event {event_id} successfully"
+            else:
+                embed.description = f"**message**: no such event {event_id} in the database"
+            await self.msg.channel.send(embed=embed)
+
+    async def deny_event_id_command(self):
+        if self.content[0] == "!deny" and self.msg.channel.id == self.admins_channel:
+            embed = Embed(title="Deny request status:")
+
+            try:
+                event_id = int(self.content[1])
+            except ValueError:
+                embed.description = "**error**: EventId must be a number"
+                await self.msg.channel.send(embed=embed)
+                return
+
+            mongo = MongoDataManager()
+
+            try:
+                mongo.add_denied_event_id(event_id=event_id)
+            except Exception as e:
+                embed.description = f"**error**: {e}"
+            else:
+                embed.description = f"**message**: event {event_id} is denied"
+
+            await self.msg.channel.send(embed=embed)
+
+
+
 
 
 
