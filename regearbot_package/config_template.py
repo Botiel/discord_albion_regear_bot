@@ -10,3 +10,4 @@ CHANNELS_ID = {
     "regear_admins": 0,
     "regear_users": 0
 }
+GUILD_NAME = ""
