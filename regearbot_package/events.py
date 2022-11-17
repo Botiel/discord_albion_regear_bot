@@ -52,7 +52,7 @@ class Commands:
         # Send to author all death embed objects
         await self.msg.author.send(embeds=embed_list)
 
-    def check_if_command(self):
+    async def check_if_command(self):
 
         first_char = self.content[0][0]  # Checks for "!" sign
         first_word = self.content[0][1:]  # Checks the command

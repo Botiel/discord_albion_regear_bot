@@ -37,14 +37,14 @@ async def on_message(msg: Message):
 
     commands = Commands(msg=msg, client=client)
 
-    if commands.check_if_command() == 'no':
+    if await commands.check_if_command() == 'no':
         await msg.channel.send("Invalid Command, use !help_me")
         return
 
-    elif commands.check_if_command() == 'msg':
+    elif await commands.check_if_command() == 'msg':
         return
 
-    elif commands.check_if_command() == 'yes':
+    elif await commands.check_if_command() == 'yes':
         await commands.help_command()
         await commands.player_mmr_command()
         await commands.all_recent_deaths_command()
